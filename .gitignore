@@ -1,0 +1,30 @@
+# macOS
+.DS_Store
+
+# Python
+backend/venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/**/*.pyc
+*.pyc
+
+# Database — contains personal financial data
+*.db
+
+# Uploaded files — tax returns and personal documents
+backend/uploads/
+
+# Python memory/session files
+*.claude/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Environment files
+.env
+.env.local
+.env.*
+
+# Personal files
+IMG_0226.jpg
