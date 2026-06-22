@@ -472,19 +472,80 @@ def _dedup_interest(entries) -> float:
     return round(total, 2)
 
 
-def _principal_from_1098(balance_by_year: dict, year: int) -> Optional[float]:
+def _principal_from_1098(balance_by_year: dict, year: int,
+                         loans: list = None) -> Optional[float]:
     """Compute principal paid DURING `year` from 1098 Box 2 balances.
 
-    1098 Box 2 is the outstanding principal as of Jan 1 of the reporting year.
-    Principal paid during year Y  =  balance_on_Jan1_Y  −  balance_on_Jan1_(Y+1).
-    We need BOTH this year's and next year's 1098 to compute the delta.
-    Returns None when either boundary is missing.
+    1098 Box 2 = outstanding principal as of Jan 1 of the reporting year.
+    Principal paid during year Y = balance_on_Jan1_Y − balance_on_Jan1_(Y+1).
+
+    When balance_by_year[year] is missing but balance_by_year[year+1] exists,
+    back-calculate the Jan 1 start balance using amortization so that a single
+    uploaded 1098 (e.g. 2025) can yield principal for the prior year (2024).
+
+    When only balance_by_year[year] exists (no next-year boundary), forward-
+    amortize 12 months to estimate the year-end balance.
     """
     curr = balance_by_year.get(year)
-    nxt = balance_by_year.get(year + 1)
-    if curr is None or nxt is None:
-        return None
-    return round(curr - nxt, 2)
+    nxt  = balance_by_year.get(year + 1)
+
+    loan = (loans or [])[0] if loans else None
+
+    def _amort_factor(l):
+        r = (l.interest_rate or 0) / 12 / 100
+        pni = max((l.monthly_payment or 0) - (l.escrow_amount or 0), 0)
+        return r, pni
+
+    if curr is not None and nxt is not None:
+        # Best case: direct delta from two adjacent Jan-1 balances.
+        # Only valid when nxt came from a 1098 (same-day convention).
+        # Mortgage statement balances (arbitrary date) produce overstated deltas;
+        # guard against them by capping at one full year of amortization.
+        if loan:
+            r, pni = _amort_factor(loan)
+            if r > 0:
+                # Max plausible annual principal from amortization
+                max_annual = sum(
+                    pni - (curr * (1 + r) ** (-i) * r / (1 - (1 + r) ** (-1))) * 0
+                    for i in range(1, 13)
+                )
+                # Simpler: forward-amortize curr for 12 months
+                b = curr
+                forward_12 = 0.0
+                for _ in range(12):
+                    interest = b * r
+                    prin = max(pni - interest, 0)
+                    forward_12 += prin
+                    b -= prin
+                delta = round(curr - nxt, 2)
+                # If delta > 1.5× forward estimate, nxt is probably mid-year not Jan-1
+                if delta > forward_12 * 1.5:
+                    return round(forward_12, 2)
+                return delta
+        return round(curr - nxt, 2)
+
+    if curr is None and nxt is not None and loan:
+        # Back-amortize: find what the Jan-1 balance was 12 months before nxt.
+        r, pni = _amort_factor(loan)
+        if r > 0:
+            factor = (1 + r) ** 12
+            annuity = pni * (factor - 1) / r
+            estimated_curr = (nxt + annuity) / factor
+            return round(estimated_curr - nxt, 2)
+
+    if curr is not None and nxt is None and loan:
+        # Forward-amortize curr for 12 months.
+        r, pni = _amort_factor(loan)
+        b = curr
+        total = 0.0
+        for _ in range(12):
+            interest = b * r
+            prin = max(pni - interest, 0)
+            total += prin
+            b -= prin
+        return round(total, 2)
+
+    return None
 
 
 def _rental_income_by_year(prop: models.Property) -> dict:
@@ -663,7 +724,7 @@ def get_performance(
         ss = [s for s in snapshots if s["year"] == year]
         # Principal: prefer 1098 balance delta (most accurate), then
         # mortgage-statement balance delta, then annualized, then estimated
-        p1098 = _principal_from_1098(balance_by_year, year)
+        p1098 = _principal_from_1098(balance_by_year, year, prop.loans)
         if p1098 is not None:
             # Exact: 1098 balance delta (balance_this_year − balance_next_year)
             principal_paid = p1098
@@ -932,7 +993,7 @@ def get_lifetime_summary(
         ss = [s for s in snapshots if s["year"] == year]
         # Principal: prefer 1098 balance delta (most accurate), then
         # mortgage-statement balance delta, then annualized, then estimated
-        p1098 = _principal_from_1098(balance_by_year, year)
+        p1098 = _principal_from_1098(balance_by_year, year, prop.loans)
         if p1098 is not None:
             principal_paid = p1098
             source = "actual"

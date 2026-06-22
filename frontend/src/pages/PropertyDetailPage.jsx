@@ -335,13 +335,13 @@ function PerformanceTab({ propId }) {
                 <th className="pb-2 pr-2 font-medium">Year</th>
                 <th className="pb-2 px-2 font-medium text-right">Rent</th>
                 <th className="pb-2 px-2 font-medium text-right">Expenses</th>
-                <th className="pb-2 px-2 font-medium text-right">Interest</th>
-                <th className="pb-2 px-2 font-medium text-right">Principal</th>
-                <th className="pb-2 px-2 font-medium text-right">Escrow</th>
                 <th className="pb-2 px-2 font-medium text-right">Taxes</th>
-                <th className="pb-2 px-2 font-medium text-right">Depreciation</th>
+                <th className="pb-2 px-2 font-medium text-right">Principal</th>
+                <th className="pb-2 px-2 font-medium text-right">Interest</th>
                 <th className="pb-2 px-2 font-medium text-right">Cash Flow</th>
+                <th className="pb-2 px-2 font-medium text-right">Depreciation</th>
                 <th className="pb-2 px-2 font-medium text-right">Taxable Income</th>
+                <th className="pb-2 px-2 font-medium text-right">Escrow</th>
                 <th className="pb-2 pl-2 font-medium text-right">Total Return</th>
               </tr>
             </thead>
@@ -363,17 +363,17 @@ function PerformanceTab({ propId }) {
                     )}
                   </td>
                   <td className="py-2 px-2 text-right text-red-500">{fmt(y.operating_expenses)}</td>
-                  <td className="py-2 px-2 text-right text-red-500">{fmt(y.interest_paid)}</td>
-                  <td className="py-2 px-2 text-right text-blue-600">{fmt(y.principal_paid)}</td>
-                  <td className="py-2 px-2 text-right text-gray-500">{fmt(y.escrow_paid)}</td>
                   <td className="py-2 px-2 text-right text-orange-500">{fmt(y.taxes_paid)}</td>
-                  <td className="py-2 px-2 text-right text-purple-600">{fmt(y.depreciation)}</td>
+                  <td className="py-2 px-2 text-right text-blue-600">{fmt(y.principal_paid)}</td>
+                  <td className="py-2 px-2 text-right text-red-500">{fmt(y.interest_paid)}</td>
                   <td className={`py-2 px-2 text-right font-medium ${y.cash_flow >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     {fmt(y.cash_flow)}
                   </td>
+                  <td className="py-2 px-2 text-right text-purple-600">{fmt(y.depreciation)}</td>
                   <td className={`py-2 px-2 text-right ${y.taxable_income < 0 ? 'text-purple-600' : 'text-gray-900'}`}>
                     {fmt(y.taxable_income)}
                   </td>
+                  <td className="py-2 px-2 text-right text-gray-500">{fmt(y.escrow_paid)}</td>
                   <td className={`py-2 pl-2 text-right font-semibold ${y.total_return >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     {fmt(y.total_return)}
                   </td>
@@ -385,17 +385,17 @@ function PerformanceTab({ propId }) {
                 <td className="pt-2 pr-2 text-sm">Total</td>
                 <td className="pt-2 px-2 text-right">{fmt(perf.totals.rental_income)}</td>
                 <td className="pt-2 px-2 text-right text-red-500">{fmt(perf.totals.operating_expenses)}</td>
-                <td className="pt-2 px-2 text-right text-red-500">{fmt(perf.totals.interest_paid)}</td>
-                <td className="pt-2 px-2 text-right text-blue-600">{fmt(perf.totals.principal_paid)}</td>
-                <td className="pt-2 px-2 text-right text-gray-500">{fmt(perf.totals.escrow_paid)}</td>
                 <td className="pt-2 px-2 text-right text-orange-500">{fmt(perf.totals.taxes_paid)}</td>
-                <td className="pt-2 px-2 text-right text-purple-600">{fmt(perf.totals.depreciation)}</td>
+                <td className="pt-2 px-2 text-right text-blue-600">{fmt(perf.totals.principal_paid)}</td>
+                <td className="pt-2 px-2 text-right text-red-500">{fmt(perf.totals.interest_paid)}</td>
                 <td className={`pt-2 px-2 text-right ${perf.totals.cash_flow >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {fmt(perf.totals.cash_flow)}
                 </td>
+                <td className="pt-2 px-2 text-right text-purple-600">{fmt(perf.totals.depreciation)}</td>
                 <td className={`pt-2 px-2 text-right ${perf.totals.taxable_income < 0 ? 'text-purple-600' : 'text-gray-900'}`}>
                   {fmt(perf.totals.taxable_income)}
                 </td>
+                <td className="pt-2 px-2 text-right text-gray-500">{fmt(perf.totals.escrow_paid)}</td>
                 <td className={`pt-2 pl-2 text-right font-bold ${perf.totals.total_return >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {fmt(perf.totals.total_return)}
                 </td>
