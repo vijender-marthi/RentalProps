@@ -712,16 +712,30 @@ def get_performance(
     # Drop pre-ownership years: a supplemental/prior-period tax bill can carry
     # a year before purchase, which would otherwise show a phantom rental year.
     purchase_year = None
+    purchase_month = 1  # default Jan if unknown
     if prop.purchase_date:
         m = re.search(r'(?:19|20)\d{2}', prop.purchase_date)
         if m:
             purchase_year = int(m.group(0))
+        mm = re.search(r'-(\d{2})-', prop.purchase_date)
+        if mm:
+            purchase_month = int(mm.group(1))
     if purchase_year:
         year_set = {y for y in year_set if y >= purchase_year}
 
     yearly = []
     for year in sorted(year_set):
         ss = [s for s in snapshots if s["year"] == year]
+
+        # For the purchase year the property was not owned Jan 1, so annual
+        # estimates from the current payment (interest_due × 12) would be
+        # inflated.  Prorate by the number of calendar months remaining after
+        # the purchase month (e.g. Sep purchase → 3 months: Oct/Nov/Dec).
+        if purchase_year and year == purchase_year:
+            months_owned = max(1, 12 - purchase_month)
+        else:
+            months_owned = 12
+
         # Principal: prefer 1098 balance delta (most accurate), then
         # mortgage-statement balance delta, then annualized, then estimated
         p1098 = _principal_from_1098(balance_by_year, year, prop.loans)
@@ -753,22 +767,22 @@ def get_performance(
             principal_paid = round(_est, 2)
             source = "estimated"
         elif ss:
-            principal_paid = round((ss[-1]["principal"] or 0) * 12, 2)
+            principal_paid = round((ss[-1]["principal"] or 0) * months_owned, 2)
             source = "annualized"
         else:
-            principal_paid = round(sum(l.principal_due or 0 for l in prop.loans) * 12, 2)
+            principal_paid = round(sum(l.principal_due or 0 for l in prop.loans) * months_owned, 2)
             source = "estimated"
 
         # Interest: always from 1098 when available
         if ss and not p1098:
             # Annualized interest from mortgage statement snapshots
-            interest_paid = round(sum(s["interest"] or 0 for s in ss) / len(ss) * 12, 2)
+            interest_paid = round(sum(s["interest"] or 0 for s in ss) / len(ss) * months_owned, 2)
             if source == "estimated":
                 source = "annualized"
         elif ss:
-            interest_paid = round(sum(s["interest"] or 0 for s in ss) / len(ss) * 12, 2)
+            interest_paid = round(sum(s["interest"] or 0 for s in ss) / len(ss) * months_owned, 2)
         else:
-            interest_paid = round(sum(l.interest_due or 0 for l in prop.loans) * 12, 2)
+            interest_paid = round(sum(l.interest_due or 0 for l in prop.loans) * months_owned, 2)
 
         if year in interest_by_year:
             interest_paid = interest_by_year[year]
@@ -988,9 +1002,21 @@ def get_lifetime_summary(
         end_year = current_year
     if data_years:
         end_year = max(end_year, max(data_years))
+    # Purchase month for partial-year prorating
+    _pur_month = 1
+    if prop.purchase_date:
+        _mm = re.search(r'-(\d{2})-', prop.purchase_date)
+        if _mm:
+            _pur_month = int(_mm.group(1))
+
     yearly_details = []
     for year in range(purchase_year, end_year + 1):
         ss = [s for s in snapshots if s["year"] == year]
+
+        # Prorate estimates for the purchase year (not owned Jan 1).
+        # Use months remaining in the year after purchase (e.g. Sep → 3).
+        months_owned = max(1, 12 - _pur_month) if year == purchase_year else 12
+
         # Principal: prefer 1098 balance delta (most accurate), then
         # mortgage-statement balance delta, then annualized, then estimated
         p1098 = _principal_from_1098(balance_by_year, year, prop.loans)
@@ -1004,21 +1030,21 @@ def get_lifetime_summary(
             principal_paid = round((ss[0]["balance"] - ss[-1]["balance"]) / months * 12, 2)
             source = "actual"
         elif ss:
-            principal_paid = round((ss[-1]["principal"] or 0) * 12, 2)
+            principal_paid = round((ss[-1]["principal"] or 0) * months_owned, 2)
             source = "annualized"
         elif (has_documents or year in interest_by_year or year in tax_by_year
               or year in rental_by_year or year == current_year
               or year in balance_by_year or year in tax_return_rent_by_year):
-            principal_paid = round(sum(l.principal_due or 0 for l in prop.loans) * 12, 2)
+            principal_paid = round(sum(l.principal_due or 0 for l in prop.loans) * months_owned, 2)
             source = "estimated"
         else:
             continue
 
         # Interest from mortgage statements or loan estimate
         if ss:
-            interest_paid = round(sum(s["interest"] or 0 for s in ss) / len(ss) * 12, 2)
+            interest_paid = round(sum(s["interest"] or 0 for s in ss) / len(ss) * months_owned, 2)
         else:
-            interest_paid = round(sum(l.interest_due or 0 for l in prop.loans) * 12, 2)
+            interest_paid = round(sum(l.interest_due or 0 for l in prop.loans) * months_owned, 2)
 
         # Form 1098 reports exact annual interest — prefer it over estimates
         if year in interest_by_year:
